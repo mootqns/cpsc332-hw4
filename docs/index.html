@@ -1,6 +1,11 @@
+<!-- Name: Matt Nguyen
+Class: CPSC332
+Assignment: HW4
+Last Modified: 10/20/2022
+ -->
+
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,6 +35,7 @@
             justify-content: center;
             align-items: center;
             background-color: hsl(var(--hue), 100%, 20%);
+            flex-direction: column;
         }
 
         body.correct {
@@ -79,8 +85,15 @@
             --hue: var(--hue-wrong);
         }
 
-        .start-btn,
-        .next-btn {
+        .next-btn,
+        .back-btn {
+            font-size: 1.5rem;
+            font-weight: bold;
+            padding: 10px 20px;
+            margin: 5px;
+        }
+
+        .start-btn {
             font-size: 1.5rem;
             font-weight: bold;
             padding: 10px 20px;
@@ -95,6 +108,28 @@
         .hide {
             display: none;
         }
+
+        .flash {
+            background-color: red;
+        }
+
+        #additional-info {
+            width: 800px;
+            max-width: 80%;
+            background-color: white;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: 0 0 5px 1px;
+            margin: 10px;
+
+        }
+
+        img {
+            border-radius: 20px;
+            margin: 10px;
+            position: absolute;
+            top: 100px;
+        }
     </style>
     <script>
 
@@ -104,25 +139,116 @@
         function domLoaded() {
             const startButton = document.getElementById('start-btn')
             const nextButton = document.getElementById('next-btn')
+            const backButton = document.getElementById('back-btn')
             const questionContainerElement = document.getElementById('question-container')
             const questionElement = document.getElementById('question')
             const answerButtonsElement = document.getElementById('answer-buttons')
+            const settingsMenu = document.getElementById('settings')
+            const shuffleSetting = document.getElementById('shuffle-cards')
+            const timeSession = document.getElementById('timed-session')
+            const removeCorrect = document.getElementById('remove-correct')
 
-            let shuffledQuestions, currentQuestionIndex
+            // getting elems for the time and making a var to store seconds
+            const minutesElem = document.getElementById('minutes')
+            const secondsElem = document.getElementById('seconds')
+            minutesElem.classList.add('hide')
+            secondsElem.classList.add('hide')
+            
+            var totalSeconds = 0;
+            
+            function setTime() {
+                ++totalSeconds;
+                if (totalSeconds % 30 == 0 || (totalSeconds - 2) % 30 == 0) {
+                    if (totalSeconds != 2) {
+                        secondsElem.classList.add('flash');
+                    }
+                }
+                else {
+                    secondsElem.classList.remove('flash');
+                }
+                secondsElem.innerHTML = formatTime(totalSeconds % 60, "s");
+                minutesElem.innerHTML = formatTime(parseInt(totalSeconds / 60), "m");
+            }
+
+            function formatTime(val, unit) {
+                var valueString = val + unit + " ";
+                if (valueString.length < 2) {
+                    return "0" + valueString;
+                } else {
+                    return valueString;
+                }
+            }
+            // end time functions
+
+            var shuffledQuestions, currentQuestionIndex
+            var isShuffled = true
+            var canRemoveCorrect = false
+
             //using the domLoaded function because the buttons need to be rendered before we can
             //add an event listener
-            startButton.addEventListener('click', startGame)
+            startButton.addEventListener('click', () =>{
+                startGame()
+                settingsMenu.classList.add('hide')
+            })
+            
             nextButton.addEventListener('click', () => {
                 currentQuestionIndex++
                 setNextQuestion()
+                removeAdditionalInfo();
+            })
+
+            backButton.addEventListener('click', () => {
+                currentQuestionIndex--
+                setNextQuestion()
+                removeAdditionalInfo();
+            })
+
+            shuffleSetting.addEventListener('change', () => {
+                if(shuffleSetting.checked) {
+                    isShuffled = true;
+                }
+                else {
+                    isShuffled = false;
+                }
+            })
+            
+            timeSession.addEventListener('change', () =>{
+                if(timeSession.checked){
+                    minutesElem.classList.remove('hide');
+                    secondsElem.classList.remove('hide');
+                }
+                else {
+                    minutesElem.classList.add('hide');
+                    secondsElem.classList.add('hide');
+                }
+            })
+
+            removeCorrect.addEventListener('change', ()=> {
+                if(removeCorrect.checked){
+                    canRemoveCorrect = true;
+                }
+                else {
+                    canRemoveCorrect = false;
+                }
             })
 
             function startGame() {
+
                 startButton.classList.add('hide')
-                shuffledQuestions = questions.sort(() => Math.random() - .5)
+                backButton.classList.add('hide')
+
                 currentQuestionIndex = 0
                 questionContainerElement.classList.remove('hide')
+
+                if(isShuffled) {
+                    shuffledQuestions = questions.sort(() => Math.random() - 0.5)
+                }
+                else {
+                    shuffledQuestions = questions.sort()
+                }
+                setInterval(setTime, 1000)
                 setNextQuestion()
+                removeAdditionalInfo();
             }
 
             function setNextQuestion() {
@@ -147,20 +273,32 @@
             function resetState() {
                 clearStatusClass(document.body)
                 nextButton.classList.add('hide')
+                backButton.classList.add('hide')
                 while (answerButtonsElement.firstChild) {
                     answerButtonsElement.removeChild(answerButtonsElement.firstChild)
                 }
             }
 
             function selectAnswer(e) {
+                showAdditionalInfo();
                 const selectedButton = e.target
                 const correct = selectedButton.dataset.correct
+
+                // for feature c) moving correct answers to correct arr
+                if(canRemoveCorrect && correct){
+                    correctQuestions.push(questions[currentQuestionIndex])
+                    questions.splice(currentQuestionIndex, 1)
+                }
+
                 setStatusClass(document.body, correct)
                 Array.from(answerButtonsElement.children).forEach(button => {
                     setStatusClass(button, button.dataset.correct)
                 })
                 if (shuffledQuestions.length > currentQuestionIndex + 1) {
                     nextButton.classList.remove('hide')
+                    if(currentQuestionIndex > 0){
+                        backButton.classList.remove('hide')
+                    }
                 } else {
                     startButton.innerText = 'Restart'
                     startButton.classList.remove('hide')
@@ -181,32 +319,118 @@
                 element.classList.remove('wrong')
             }
 
-            const questions = [
+           function removeAdditionalInfo() {
+                if (document.getElementById("additional-info") != null) {
+                    document.getElementById("additional-info").remove();     
+                }
+           }
+
+            function showAdditionalInfo() {
+                let additionalInfo = document.createElement("div");
+                let additionalText = document
+                    .createTextNode("This is additional information about your quiz response");
+
+                additionalInfo.appendChild(additionalText);
+
+
+                additionalInfo.id = "additional-info";
+                document.body.prepend(additionalInfo);
+            }
+
+            var correctQuestions = [
+
+            ]
+
+            var questions = [
                 {
-                    question: 'This is a test question',
+                    question: '1: What cat is the most popular in the U.S?',
                     answers: [
-                        { text: 'Correct Answer', correct: true },
-                        { text: 'Incorrect Answer', correct: false },
+                        { text: 'Exotic Shorthair', correct: true },
+                        { text: 'Persian', correct: false },
                     ]
                 },
                 {
-                    question: 'This is another test question',
+                    question: '2: How many whiskers does an average cat have on its face?',
                     answers: [
-                        { text: 'Correct Answer', correct: true },
-                        { text: 'Incorrect Answer', correct: false },
-                        { text: 'Incorrect Answer', correct: false },
-                        { text: 'Incorrect Answer', correct: false },
-                        { text: 'Incorrect Answer', correct: false },
-                        { text: 'Incorrect Answer', correct: false },
+                        { text: '12', correct: true },
+                        { text: '1', correct: false },
+                        { text: '13', correct: false },
+                        { text: '5,007', correct: false },
+                        { text: '2', correct: false },
+                        { text: '6', correct: false },
                     ]
                 },
-                
+                {
+                    question: '3: True or false? The average cat can spend two-thirds of its life sleeping.',
+                    answers: [
+                        { text: 'True', correct: true },
+                        { text: 'False', correct: false },
+                    ]
+                },
+                {
+                    question: '4: When does a cat purr?',
+                    answers: [
+                        { text: 'When it cares for its kittens', correct: true },
+                        { text: 'When it needs comfort', correct: false },
+                        { text: 'When its bored', correct: false }
+                    ]
+                },
+                {
+                    question: '5: What is the average number of kittens in a litter?',
+                    answers: [
+                        { text: '1 to 2', correct: true },
+                        { text: '3 to 4', correct: false },
+                        { text: '8 to 10', correct: false }
+                    ]
+                },
+                {
+                    question: '6: Which part of a cat’s body can appear and disappear?',
+                    answers: [
+                        { text: 'Eyes', correct: true },
+                        { text: 'Claws', correct: false },
+                        { text: 'Whiskers', correct: false }
+                    ]
+                },
+                {
+                    question: '7: What was the punishment for killing a cat in ancient Egypt?',
+                    answers: [
+                        { text: 'Nine lashes with a cattail', correct: true },
+                        { text: 'Death', correct: false },
+                        { text: 'Nine years of exile', correct: false }
+                    ]
+                },
+                {
+                    question: '8: A cat named Tommaso inherited how much money from his owner when she passed away?',
+                    answers: [
+                        { text: '$20', correct: true },
+                        { text: '$5,000', correct: false },
+                        { text: '13 million', correct: false }
+                    ]
+                },
+                {
+                    question: '9: Which part of a cat is as unique as a human fingerprint?',
+                    answers: [
+                        { text: 'Nose pad', correct: true },
+                        { text: 'Paw pads', correct: false },
+                        { text: 'Tongue', correct: false }
+                    ]
+                },
+                {
+                    question: '10: Which smell is so gross to cats that theyll stay away from it? ',
+                    answers: [
+                        { text: 'Catnip', correct: true },
+                        { text: 'Human Sweat', correct: false },
+                        { text: 'Dog breath', correct: false }
+                    ]
+                }
             ]
         }
     </script>
 </head>
 
 <body>
+    <!-- <div id="additional-info"> This is some additional info </div> -->
+    <img src="./cat.jpg" alt="cat quiz!">
     <div class="container">
         <div id="question-container" class="hide">
             <div id="question">Question</div>
@@ -219,11 +443,31 @@
         </div>
         <div class="controls">
             <button id="start-btn" class="start-btn btn">Start</button>
+            <button id="back-btn" class="back-btn btn hide">Back</button>
             <button id="next-btn" class="next-btn btn hide">Next</button>
         </div>
+        <label id="minutes">00m</label><label id="seconds">00s</label>
+        <fieldset id="settings">
+            <legend>Options</legend>
+                <div>
+                    <input id="shuffle-cards"
+                    name="shuffle-cards"
+                    type="checkbox" checked>
+                    <label for="shuffle-cards">Shuffle Cards</label>
+                </div>
+                <div>
+                    <input id="remove-correct"
+                        name="remove-correct"
+                        type="checkbox">
+                        <label for="remove-correct">Remove Correct From Deck</label>
+                </div>
+                <div>
+                    <input id="timed-session"
+                    name="timed-session"
+                    type="checkbox">
+                    <label for="timed-session">Timed Session</label>
+                </div>
+        </fieldset>
     </div>
 </body>
-
-
-
 </html>
